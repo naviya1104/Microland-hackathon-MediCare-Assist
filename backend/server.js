@@ -4,6 +4,7 @@ const cors = require('cors');
 
 const medicinesRouter = require('./routes/medicines');
 const scheduleRouter = require('./routes/schedule');
+const chatRouter = require('./routes/chat');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -24,6 +25,7 @@ app.get('/api/health', (req, res) => {
 // Routes
 app.use('/api/medicines', medicinesRouter);
 app.use('/api/schedule', scheduleRouter);
+app.use('/api/chat', chatRouter);
 
 // 404
 app.use((req, res) => {

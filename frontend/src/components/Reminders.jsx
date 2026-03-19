@@ -41,7 +41,26 @@ function getTimeIcon(timeSlot) {
   return '⏰';
 }
 
+// Helper to check if a scheduled time slot is in the past
+function isPast(timeSlot) {
+  try {
+    const match = timeSlot.match(/\((\d+):00 (AM|PM)\)/);
+    if (!match) return false;
+    let hour = parseInt(match[1]);
+    const ampm = match[2];
+    if (ampm === 'PM' && hour !== 12) hour += 12;
+    if (ampm === 'AM' && hour === 12) hour = 0;
+    
+    const now = new Date();
+    const currentHour = now.getHours();
+    return hour < currentHour;
+  } catch {
+    return false;
+  }
+}
+
 export default function Reminders() {
+  const [activeTab, setActiveTab] = useState('current');
   const [reminders, setReminders] = useState([]);
   const [takenDoses, setTakenDoses] = useState(() => {
     try {
@@ -87,6 +106,10 @@ export default function Reminders() {
     }
   };
 
+  const missedList = reminders.filter(r => isPast(r.timeSlot) && !takenDoses[r.id]);
+  const currentList = reminders.filter(r => !isPast(r.timeSlot) || takenDoses[r.id]);
+  const displayList = activeTab === 'current' ? currentList : missedList;
+
   const taken = Object.values(takenDoses).filter(Boolean).length;
   const total = reminders.length;
 
@@ -107,59 +130,105 @@ export default function Reminders() {
         )}
       </div>
 
-      {/* Push notification registration */}
-      <div className="alert-strip" style={{ background: 'var(--primary-light)', border: '1px solid var(--primary)', color: 'var(--primary-dark)' }}>
-        <span>🔔</span>
-        <div>
-          <strong>Enable Push Notifications</strong>
-          <p style={{ fontSize: '0.82rem', marginTop: 2 }}>
-            Get reminded at scheduled times automatically.
-          </p>
-          <button
-            className="btn btn-primary btn-sm"
-            style={{ marginTop: 10, width: 'auto' }}
-            onClick={requestNotifications}
-            disabled={notifStatus === 'granted'}
-          >
-            {notifStatus === 'granted' ? '✅ Notifications On' : notifStatus === 'denied' ? '🚫 Permission Denied' : 'Enable Reminders'}
-          </button>
-        </div>
+      {/* Tab Switcher */}
+      <div className="tab-container" style={{ marginBottom: 20 }}>
+        <button 
+          className={`tab-btn ${activeTab === 'current' ? 'active' : ''}`}
+          onClick={() => setActiveTab('current')}
+        >
+          Daily Schedule
+        </button>
+        <button 
+          className={`tab-btn ${activeTab === 'missed' ? 'active' : ''}`}
+          onClick={() => setActiveTab('missed')}
+        >
+          {missedList.length > 0 && <span className="tab-badge">{missedList.length}</span>}
+          Missed Doses
+        </button>
       </div>
 
-      <div className="section-divider" />
-      <p className="section-label">Today's Doses</p>
-
-      {reminders.map((reminder) => {
-        const isTaken = !!takenDoses[reminder.id];
-        return (
-          <div key={reminder.id} className={`reminder-item ${isTaken ? 'taken' : ''}`} role="article" aria-label={`${reminder.name} at ${reminder.timeSlot}`}>
-            <div className="reminder-dot" aria-hidden="true">
-              {isTaken ? '✅' : getTimeIcon(reminder.timeSlot)}
-            </div>
-            <div className="reminder-info">
-              <div className="reminder-time">{reminder.timeSlot}</div>
-              <div className="reminder-name">{reminder.name}</div>
-              <div className="reminder-dosage">{reminder.dosage}
-                {reminder.instructions && ` · ${reminder.instructions}`}
-              </div>
+      {activeTab === 'current' ? (
+        <>
+          {/* Push notification registration */}
+          <div className="alert-strip" style={{ background: 'var(--primary-light)', border: '1px solid var(--primary)', color: 'var(--primary-dark)', marginBottom: 20 }}>
+            <span>🔔</span>
+            <div style={{ flex: 1 }}>
+              <strong>Enable Reminders</strong>
+              <p style={{ fontSize: '0.82rem', marginTop: 2 }}>Get alerts exactly when it's time.</p>
             </div>
             <button
-              className={`taken-btn ${isTaken ? 'active' : ''}`}
-              onClick={() => toggleTaken(reminder.id)}
-              aria-pressed={isTaken}
-              aria-label={`Mark ${reminder.name} as ${isTaken ? 'not taken' : 'taken'}`}
+              className="btn btn-primary btn-sm"
+              style={{ width: 'auto' }}
+              onClick={requestNotifications}
+              disabled={notifStatus === 'granted'}
             >
-              {isTaken ? '✓ Taken' : 'Mark\nTaken'}
+              {notifStatus === 'granted' ? '✅ On' : 'Enable'}
             </button>
           </div>
-        );
-      })}
+
+          <p className="section-label">Today's Routine</p>
+          {currentList.map((reminder) => {
+            const isTaken = !!takenDoses[reminder.id];
+            return (
+              <div key={reminder.id} className={`reminder-item ${isTaken ? 'taken' : ''}`} role="article">
+                <div className="reminder-dot" aria-hidden="true">
+                  {isTaken ? '✅' : getTimeIcon(reminder.timeSlot)}
+                </div>
+                <div className="reminder-info">
+                  <div className="reminder-time">{reminder.timeSlot}</div>
+                  <div className="reminder-name">{reminder.name}</div>
+                  <div className="reminder-dosage">{reminder.dosage}
+                    {reminder.instructions && ` · ${reminder.instructions}`}
+                  </div>
+                </div>
+                <button
+                  className={`taken-btn ${isTaken ? 'active' : ''}`}
+                  onClick={() => toggleTaken(reminder.id)}
+                >
+                  {isTaken ? '✓ Taken' : 'Mark\nTaken'}
+                </button>
+              </div>
+            );
+          })}
+          {currentList.length === 0 && (
+            <div className="empty-state">
+              <span className="empty-icon">⭐</span>
+              <h3>All caught up!</h3>
+              <p>Nothing else on the schedule for now.</p>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="section-label" style={{ color: 'var(--danger)' }}>Missed Doses</p>
+          {missedList.map((reminder) => (
+            <div key={reminder.id} className="reminder-item missed" role="article">
+              <div className="reminder-dot" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>⚠️</div>
+              <div className="reminder-info">
+                <div className="reminder-time" style={{ color: 'var(--danger)', fontWeight: 700 }}>{reminder.timeSlot} (EXPIRED)</div>
+                <div className="reminder-name">{reminder.name}</div>
+                <div className="reminder-dosage">{reminder.dosage}</div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+                  You missed this dose. Please contact your doctor if you're unsure about taking it late.
+                </p>
+              </div>
+            </div>
+          ))}
+          {missedList.length === 0 && (
+            <div className="empty-state">
+              <span className="empty-icon">✅</span>
+              <h3>No Missed Doses</h3>
+              <p>Excellent! You have stayed on track today.</p>
+            </div>
+          )}
+        </>
+      )}
 
       {reminders.length === 0 && (
         <div className="empty-state">
           <span className="empty-icon">🔔</span>
-          <h3>No Reminders</h3>
-          <p>Generate a schedule first to see your reminders.</p>
+          <h3>No Data</h3>
+          <p>Generate a schedule first to see items here.</p>
         </div>
       )}
     </div>

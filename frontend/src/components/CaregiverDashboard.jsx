@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import BiometricAuth from './BiometricAuth';
 
 const CORRECT_PIN = '1234';
 
-function PinScreen({ onUnlock }) {
+function PinScreen({ onUnlock, onSwitchToFace, hasFaceRegistered }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
 
@@ -49,10 +50,17 @@ function PinScreen({ onUnlock }) {
         </p>
       )}
 
-      {/* Hint */}
-      <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-        Demo PIN: <strong>1234</strong>
-      </p>
+      <div style={{ margin: '10px 0' }}>
+         {hasFaceRegistered ? (
+           <button className="btn btn-primary" onClick={onSwitchToFace}>
+             🔓 Unlock with Face ID
+           </button>
+         ) : (
+           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+             Demo PIN: <strong>1234</strong>
+           </p>
+         )}
+      </div>
 
       <div className="pin-keypad" role="group" aria-label="PIN keypad">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
@@ -68,7 +76,7 @@ function PinScreen({ onUnlock }) {
   );
 }
 
-function Dashboard() {
+function Dashboard({ onShowSetup }) {
   // Read cached data
   let medicines = [];
   let schedule = null;
@@ -186,26 +194,63 @@ function Dashboard() {
         <span style={{ fontSize: '2rem' }}>🔐</span>
         <h3 style={{ marginTop: 8, color: 'var(--text-secondary)' }}>Biometric Lock</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 6 }}>
-          Fingerprint / Face ID authentication placeholder.
-          Integrate with Capacitor Biometrics plugin for production.
+          Official Face ID registration (Computer Vision AI).
         </p>
         <button
           className="btn btn-outline btn-sm"
           style={{ marginTop: 14, width: 'auto' }}
-          onClick={() => alert('Biometric authentication would be triggered here in the native app.')}
+          onClick={onShowSetup}
         >
-          🔓 Simulate Biometric Auth
+          📷 Setup My Face ID
         </button>
       </div>
     </div>
   );
 }
 
+// Session-persistent storage for face descriptor (lasts until refresh)
+let sessionFaceDescriptor = null;
+
 export default function CaregiverDashboard() {
   const [unlocked, setUnlocked] = useState(false);
+  const [showFaceAuth, setShowFaceAuth] = useState(false);
+  const [faceMode, setFaceMode] = useState('VERIFY'); // VERIFY or REGISTER
+
+  const handleFaceComplete = (descriptor) => {
+    if (faceMode === 'REGISTER') {
+      sessionFaceDescriptor = descriptor;
+      setUnlocked(true);
+    } else {
+      setUnlocked(true);
+    }
+    setShowFaceAuth(false);
+  };
+
+  const startRegistration = () => {
+    setFaceMode('REGISTER');
+    setShowFaceAuth(true);
+  };
+
+  // Always render BiometricAuth as an overlay if it is active
+  if (showFaceAuth) {
+    return (
+      <BiometricAuth 
+        mode={faceMode} 
+        onComplete={handleFaceComplete} 
+        onCancel={() => setShowFaceAuth(false)} 
+        registeredDescriptor={sessionFaceDescriptor}
+      />
+    );
+  }
 
   if (!unlocked) {
-    return <PinScreen onUnlock={() => setUnlocked(true)} />;
+    return (
+      <PinScreen 
+        onUnlock={() => setUnlocked(true)} 
+        onSwitchToFace={() => { setFaceMode('VERIFY'); setShowFaceAuth(true); }}
+        hasFaceRegistered={!!sessionFaceDescriptor}
+      />
+    );
   }
 
   return (
@@ -230,7 +275,7 @@ export default function CaregiverDashboard() {
           🔒 Lock
         </button>
       </div>
-      <Dashboard />
+      <Dashboard onShowSetup={startRegistration} />
     </div>
   );
 }

@@ -10,7 +10,7 @@ function getGeminiModel() {
   if (!key || key === 'your_gemini_api_key_here') return null;
   const { GoogleGenerativeAI } = require('@google/generative-ai');
   const genAI = new GoogleGenerativeAI(key);
-  return genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 }
 
 // POST /api/schedule — generate AI schedule

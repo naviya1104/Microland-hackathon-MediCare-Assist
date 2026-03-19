@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Home from './pages/Home';
 import Schedule from './pages/Schedule';
 import RemindersPage from './pages/RemindersPage';
 import Caregiver from './pages/Caregiver';
+import Chatbot from './components/Chatbot';
 
 // Icons (inline SVG)
 function HomeIcon({ filled }) {
@@ -38,6 +39,14 @@ function UsersIcon({ filled }) {
   );
 }
 
+function ChatIcon({ filled }) {
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+    </svg>
+  );
+}
+
 function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -46,6 +55,7 @@ function BottomNav() {
     { path: '/', label: 'Home', Icon: HomeIcon },
     { path: '/schedule', label: 'Schedule', Icon: CalendarIcon },
     { path: '/reminders', label: 'Reminders', Icon: BellIcon },
+    { path: '/chatbot', label: 'MediBot', Icon: ChatIcon },
     { path: '/caregiver', label: 'Caregiver', Icon: UsersIcon },
   ];
 
@@ -71,13 +81,32 @@ function BottomNav() {
 }
 
 function TopBar() {
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('theme') === 'dark');
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
   return (
     <header className="top-bar" role="banner">
       <div className="logo-icon" aria-hidden="true">💊</div>
-      <div>
+      <div style={{ flex: 1 }}>
         <h1>MediCare Assistant</h1>
         <p>Smart Medicine Management</p>
       </div>
+      <button 
+        onClick={() => setIsDark(!isDark)}
+        style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', padding: '4px 8px' }}
+        aria-label="Toggle theme"
+      >
+        {isDark ? '☀️' : '🌙'}
+      </button>
     </header>
   );
 }
@@ -91,6 +120,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/schedule" element={<Schedule />} />
           <Route path="/reminders" element={<RemindersPage />} />
+          <Route path="/chatbot" element={<Chatbot />} />
           <Route path="/caregiver" element={<Caregiver />} />
         </Routes>
       </main>
