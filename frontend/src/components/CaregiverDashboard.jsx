@@ -1,81 +1,6 @@
 import { useState, useEffect } from 'react';
 import BiometricAuth from './BiometricAuth';
 
-const CORRECT_PIN = '1234';
-
-function PinScreen({ onUnlock, onSwitchToFace, hasFaceRegistered }) {
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState(false);
-
-  const handleKey = (digit) => {
-    if (pin.length >= 4) return;
-    const newPin = pin + digit;
-    setPin(newPin);
-    setError(false);
-
-    if (newPin.length === 4) {
-      if (newPin === CORRECT_PIN) {
-        setTimeout(() => onUnlock(), 200);
-      } else {
-        setTimeout(() => {
-          setError(true);
-          setPin('');
-        }, 400);
-      }
-    }
-  };
-
-  const handleBack = () => {
-    setPin((prev) => prev.slice(0, -1));
-    setError(false);
-  };
-
-  return (
-    <div className="pin-screen" role="main" aria-label="Caregiver PIN entry">
-      <div className="pin-icon" aria-hidden="true">🔒</div>
-      <h2 style={{ color: 'var(--navy)' }}>Caregiver Access</h2>
-      <p style={{ color: 'var(--text-secondary)', maxWidth: 260 }}>
-        Enter your 4-digit PIN to view the patient's medication dashboard.
-      </p>
-
-      <div className="pin-dots" role="status" aria-label={`PIN: ${pin.length} of 4 digits entered`}>
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className={`pin-dot ${i < pin.length ? 'filled' : ''}`} aria-hidden="true" />
-        ))}
-      </div>
-
-      {error && (
-        <p role="alert" style={{ color: 'var(--danger)', fontWeight: 700, fontSize: '0.9rem' }}>
-          ❌ Incorrect PIN. Please try again.
-        </p>
-      )}
-
-      <div style={{ margin: '10px 0' }}>
-         {hasFaceRegistered ? (
-           <button className="btn btn-primary" onClick={onSwitchToFace}>
-             🔓 Unlock with Face ID
-           </button>
-         ) : (
-           <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-             Demo PIN: <strong>1234</strong>
-           </p>
-         )}
-      </div>
-
-      <div className="pin-keypad" role="group" aria-label="PIN keypad">
-        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-          <button key={d} className="pin-key" onClick={() => handleKey(d)} aria-label={d}>
-            {d}
-          </button>
-        ))}
-        <div />
-        <button className="pin-key" onClick={() => handleKey('0')} aria-label="0">0</button>
-        <button className="pin-key backspace" onClick={handleBack} aria-label="Delete">⌫</button>
-      </div>
-    </div>
-  );
-}
-
 function Dashboard({ onShowSetup }) {
   // Read cached data
   let medicines = [];
@@ -85,19 +10,13 @@ function Dashboard({ onShowSetup }) {
   try {
     const meds = localStorage.getItem('medicare_medicines_cache');
     if (meds) medicines = JSON.parse(meds);
-  } catch {}
-
-  try {
     const sched = localStorage.getItem('medicare_schedule_cache');
     if (sched) schedule = JSON.parse(sched);
-  } catch {}
-
-  try {
     const taken = localStorage.getItem('medicare_doses_taken');
     if (taken) {
       const parsed = JSON.parse(taken);
       const today = new Date().toDateString();
-      takenDoses = parsed.date === today ? parsed.doses : {};
+      takenDoses = (parsed.date === today && parsed.doses) ? parsed.doses : {};
     }
   } catch {}
 
@@ -108,6 +27,39 @@ function Dashboard({ onShowSetup }) {
   const takenCount = Object.values(takenDoses).filter(Boolean).length;
   const missedCount = Math.max(0, totalSlots - takenCount);
   const adherencePct = totalSlots > 0 ? Math.round((takenCount / totalSlots) * 100) : 0;
+
+  // Process Activity Timeline (Last 4 events)
+  const timeline = [];
+  try {
+    if (schedule?.schedule?.daily_schedule && Array.isArray(schedule.schedule.daily_schedule)) {
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      schedule.schedule.daily_schedule.forEach(slot => {
+          if (!slot.time || !slot.medicines) return;
+          const timeParts = slot.time.split(':');
+          if (timeParts.length < 2) return;
+          
+          const [h, m] = timeParts.map(Number);
+          const slotMinutes = h * 60 + m;
+          
+          if (slotMinutes <= currentMinutes) {
+              slot.medicines.forEach(med => {
+                  const key = `${slot.time}-${med}`;
+                  const isTaken = takenDoses && takenDoses[key];
+                  timeline.push({
+                      time: slot.time,
+                      medicine: med,
+                      status: isTaken ? 'COMPLETED' : 'MISSED'
+                  });
+              });
+          }
+      });
+    }
+  } catch (err) {
+    console.error('Timeline processing error:', err);
+  }
+  const recentTimeline = timeline.reverse().slice(0, 4);
 
   return (
     <div>
@@ -122,15 +74,15 @@ function Dashboard({ onShowSetup }) {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <p style={{ opacity: 0.75, fontSize: '0.8rem', marginBottom: 2 }}>PATIENT</p>
-            <h2>Medication Report</h2>
+            <p style={{ opacity: 0.75, fontSize: '0.8rem', marginBottom: 2 }}>PATIENT ADHERENCE</p>
+            <h2>Live Stability Report</h2>
             <p style={{ opacity: 0.75, fontSize: '0.82rem', marginTop: 4 }}>
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '2.5rem', fontWeight: 800 }}>{adherencePct}%</div>
-            <div style={{ fontSize: '0.75rem', opacity: 0.75 }}>Adherence</div>
+            <div style={{ fontSize: '0.75rem', opacity: 0.75 }}>Daily Success Rate</div>
           </div>
         </div>
       </div>
@@ -157,8 +109,28 @@ function Dashboard({ onShowSetup }) {
         </div>
       </div>
 
+      {/* Recent Activity Timeline */}
+      <p className="section-label">Recent Activity (Last {recentTimeline.length} events)</p>
+      <div className="card" style={{ padding: '15px 20px', marginBottom: 20 }}>
+          {recentTimeline.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>No activities recorded yet for today.</p>
+          ) : (
+            recentTimeline.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: idx < recentTimeline.length -1 ? '1px solid var(--border)' : 'none' }}>
+                    <div>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', display: 'block' }}>{item.time}</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{item.medicine}</span>
+                    </div>
+                    <span className={`badge badge-${item.status === 'COMPLETED' ? 'success' : 'danger'}`}>
+                        {item.status}
+                    </span>
+                </div>
+            ))
+          )}
+      </div>
+
       {/* Active medicines */}
-      <p className="section-label">Active Medicines</p>
+      <p className="section-label">Active Medicines Inventory</p>
       {medicines.length === 0 ? (
         <div className="card">
           <p style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.9rem' }}>
@@ -174,34 +146,20 @@ function Dashboard({ onShowSetup }) {
               <div className="med-meta">
                 <span className="med-tag">{med.dosage}</span>
                 <span className="med-tag">⏰ {med.timing}</span>
-                <span className="med-tag">📅 {med.duration}</span>
               </div>
             </div>
           </div>
         ))
       )}
 
-      {/* Biometric placeholder */}
-      <div className="section-divider" />
-      <div
-        className="card"
-        style={{
-          border: '2px dashed var(--border)',
-          textAlign: 'center',
-          background: 'transparent',
-        }}
-      >
-        <span style={{ fontSize: '2rem' }}>🔐</span>
-        <h3 style={{ marginTop: 8, color: 'var(--text-secondary)' }}>Biometric Lock</h3>
-        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: 6 }}>
-          Official Face ID registration (Computer Vision AI).
-        </p>
+      {/* Re-registration Button */}
+      <div style={{ textAlign: 'center', marginTop: 30, opacity: 0.6 }}>
         <button
           className="btn btn-outline btn-sm"
-          style={{ marginTop: 14, width: 'auto' }}
+          style={{ width: 'auto' }}
           onClick={onShowSetup}
         >
-          📷 Setup My Face ID
+          📷 Re-calibrate Face ID
         </button>
       </div>
     </div>
@@ -214,7 +172,7 @@ let sessionFaceDescriptor = null;
 export default function CaregiverDashboard() {
   const [unlocked, setUnlocked] = useState(false);
   const [showFaceAuth, setShowFaceAuth] = useState(false);
-  const [faceMode, setFaceMode] = useState('VERIFY'); // VERIFY or REGISTER
+  const [faceMode, setFaceMode] = useState('REGISTER'); 
 
   const handleFaceComplete = (descriptor) => {
     if (faceMode === 'REGISTER') {
@@ -231,26 +189,29 @@ export default function CaregiverDashboard() {
     setShowFaceAuth(true);
   };
 
-  // Always render BiometricAuth as an overlay if it is active
-  if (showFaceAuth) {
+  // If locked and registered, show VERIFY. If locked and not registered, show REGISTER.
+  if (!unlocked) {
+    const currentMode = sessionFaceDescriptor ? 'VERIFY' : 'REGISTER';
     return (
       <BiometricAuth 
-        mode={faceMode} 
+        mode={currentMode} 
         onComplete={handleFaceComplete} 
-        onCancel={() => setShowFaceAuth(false)} 
+        onCancel={() => {}} // No cancel, it's mandatory
         registeredDescriptor={sessionFaceDescriptor}
       />
     );
   }
 
-  if (!unlocked) {
+  // If triggered re-calibration from inside dashboard
+  if (showFaceAuth) {
     return (
-      <PinScreen 
-        onUnlock={() => setUnlocked(true)} 
-        onSwitchToFace={() => { setFaceMode('VERIFY'); setShowFaceAuth(true); }}
-        hasFaceRegistered={!!sessionFaceDescriptor}
-      />
-    );
+        <BiometricAuth 
+          mode="REGISTER" 
+          onComplete={handleFaceComplete} 
+          onCancel={() => setShowFaceAuth(false)} 
+          registeredDescriptor={null}
+        />
+      );
   }
 
   return (
@@ -265,14 +226,14 @@ export default function CaregiverDashboard() {
       >
         <span className="badge badge-success">
           <span className="live-dot" style={{ marginRight: 0 }} aria-hidden="true" />
-          Live View
+          Caregiver Session Active
         </span>
         <button
           className="btn btn-outline btn-sm"
           style={{ width: 'auto' }}
           onClick={() => setUnlocked(false)}
         >
-          🔒 Lock
+          🔒 Lock Dashboard
         </button>
       </div>
       <Dashboard onShowSetup={startRegistration} />

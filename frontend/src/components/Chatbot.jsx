@@ -4,7 +4,9 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([{ role: 'assistant', text: "Hello! I am your MediBot AI Assistant. How can I help you regarding your medicines today?" }]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -13,6 +15,46 @@ export default function Chatbot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      if (!recognitionRef.current) {
+        alert("Speech Recognition is not supported in this browser.");
+        return;
+      }
+      setInput('');
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
@@ -84,13 +126,20 @@ export default function Chatbot() {
           <div ref={messagesEndRef} />
         </div>
         <div className="chatbot-input">
+          <button 
+            className={`mic-btn ${isListening ? 'listening' : ''}`} 
+            onClick={toggleListening}
+            title="Voice Input"
+          >
+            🎙️
+          </button>
           <input 
             type="text" 
             className="form-control" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Ask about your medicines..."
+            placeholder={isListening ? "Listening..." : "Ask about your medicines..."}
           />
           <button className="btn btn-primary btn-sm" onClick={handleSend} disabled={isLoading || !input.trim()}>
             Send
