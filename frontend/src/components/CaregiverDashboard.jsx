@@ -67,7 +67,7 @@ function Dashboard({ onShowSetup }) {
       <div
         className="card"
         style={{
-          background: 'linear-gradient(135deg, var(--navy) 0%, var(--primary) 100%)',
+          background: 'var(--gradient-bg)',
           color: '#fff',
           marginBottom: 20,
         }}

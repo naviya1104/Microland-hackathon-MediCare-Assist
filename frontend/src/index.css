@@ -28,6 +28,9 @@
   --radius-md: 16px;
   --radius-lg: 24px;
   --navy: #0f2149;
+  
+  --banner-bg: linear-gradient(135deg, #0f2149 0%, #1a3a6e 100%);
+  --gradient-bg: linear-gradient(135deg, #0f2149 0%, #1a6fc4 100%);
 }
 
 :root.dark {
@@ -39,7 +42,29 @@
   --text-muted: #718096;
   --border: #2d3748;
   --navy: #e8f1fc;
-  --primary-light: #153e75;
+  
+  /* Adjusted Palette specifically for Dark Mode */
+  --primary: #3b82f6; /* Lighter vivid blue */
+  --primary-dark: #60a5fa; /* Even lighter for hover */
+  --primary-light: #1e3a5f; /* Deep blue background */
+  
+  --accent: #10b981;
+  --accent-light: #064e3b; /* Dark green background */
+  
+  --danger: #ef4444;
+  --danger-light: #7f1d1d;
+  
+  --warning: #f59e0b;
+  --warning-light: #78350f;
+
+  /* Deeper shadows for dark mode */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+
+  /* Specific Gradient overrides */
+  --banner-bg: linear-gradient(135deg, #0f2149 0%, #0a1930 100%);
+  --gradient-bg: linear-gradient(135deg, #0f2149 0%, #1e3a5f 100%);
 }
 
 /* =======================================
@@ -500,7 +525,7 @@ p, li { font-size: 1rem; line-height: 1.65; }
 }
 
 .schedule-slot-header {
-  background: linear-gradient(135deg, var(--navy) 0%, var(--primary) 100%);
+  background: var(--gradient-bg);
   padding: 14px 20px;
   display: flex;
   align-items: center;
@@ -797,7 +822,7 @@ p, li { font-size: 1rem; line-height: 1.65; }
 
 /* Hero banner */
 .hero-banner {
-  background: linear-gradient(135deg, var(--navy) 0%, #1a3a6e 100%);
+  background: var(--banner-bg);
   border-radius: var(--radius-lg);
   padding: 28px 24px;
   margin-bottom: 24px;
