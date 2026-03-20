@@ -31,7 +31,7 @@ const DEMO_REMINDERS = [
   { id: 'morning-metformin', timeSlot: 'Morning (3:10 AM)', name: 'Metformin', dosage: '500mg', instructions: 'Take with food' },
   { 
     id: 'demo-med', 
-    timeSlot: 'Demo (5:13 AM)', // 👈 Put your "1 minute from now" string here
+    timeSlot: 'Demo (10:30 AM)', // 👈 Put your "1 minute from now" string here
     name: 'Metformin', 
     dosage: '500mg', 
     instructions: 'Test Dose' 
@@ -135,19 +135,19 @@ useEffect(() => {
       if (!takenDoses[r.id] && minsLate > 0) {
 
         // STRIKE 1: 15 minutes late
-        if (minsLate === 15 && lastNotifiedRef.current !== `${r.id}-strike1`) {
+        if (minsLate === 1 && lastNotifiedRef.current !== `${r.id}-strike1`) {
           triggerNotification({...r, name: `⚠️ URGENT: ${r.name}`});
           lastNotifiedRef.current = `${r.id}-strike1`;
         }
 
         // STRIKE 2: 30 minutes late
-        if (minsLate === 30 && lastNotifiedRef.current !== `${r.id}-strike2`) {
+        if (minsLate === 2 && lastNotifiedRef.current !== `${r.id}-strike2`) {
           triggerNotification({...r, name: `⚠️ URGENT: ${r.name}`});
           lastNotifiedRef.current = `${r.id}-strike2`;
         }
 
         // STRIKE 3: 45 minutes late -> THE SOS
-        if (minsLate === 45 && lastNotifiedRef.current !== `${r.id}-SOS`) {
+        if (minsLate === 3 && lastNotifiedRef.current !== `${r.id}-SOS`) {
           handleEmergencySOS(r);
           lastNotifiedRef.current = `${r.id}-SOS`;
         }
@@ -325,19 +325,30 @@ const handleEmergencySOS = (reminder) => {
       ) : (
         <>
           <p className="section-label" style={{ color: 'var(--danger)' }}>Missed Doses</p>
-          {missedList.map((reminder) => (
+          {missedList.map((reminder) => {
+            const isTaken = !!takenDoses[reminder.id];
+            return (
             <div key={reminder.id} className="reminder-item missed" role="article">
               <div className="reminder-dot" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>⚠️</div>
               <div className="reminder-info">
-                <div className="reminder-time" style={{ color: 'var(--danger)', fontWeight: 700 }}>{reminder.timeSlot} (EXPIRED)</div>
+                <div className="reminder-time" style={{ color: 'var(--danger)', fontWeight: 700 }}>{reminder.timeSlot} (OVERDUE)</div>
                 <div className="reminder-name">{reminder.name}</div>
                 <div className="reminder-dosage">{reminder.dosage}</div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-                  You missed this dose. Please contact your doctor if you're unsure about taking it late.
+                  You missed this dose.If you have taken it, please mark as taken now to stop emergency alerts. Please contact your doctor if you're unsure about taking it late.
                 </p>
               </div>
+              {/* NEW: The Action Button for Missed Doses */}
+              <button
+              className="taken-btn"
+              style={{ background: 'var(--danger)', color: 'white', border: 'none' }}
+              onClick={() => toggleTaken(reminder.id)}
+              >
+                Mark as Taken
+              </button>
             </div>
-          ))}
+            );
+          })}
           {missedList.length === 0 && (
             <div className="empty-state">
               <span className="empty-icon">✅</span>
@@ -355,27 +366,36 @@ const handleEmergencySOS = (reminder) => {
           <p>Generate a schedule first to see items here.</p>
         </div>
       )}
+      
       {showSOS && (
         <div className="sos-overlay" style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(220, 38, 38, 0.95)', zIndex: 9999,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          color: 'white', textAlign: 'center', padding: 20
+          color: 'white', textAlign: 'center', padding: '20px',
+          boxSizing: 'border-box',
+          overflowY: 'auto' // Prevents content cut-off if the phone is tiny
         }}>
-          <div style={{ fontSize: '5rem' }}>⚠️</div>
-          <h1 style={{ fontSize: '2.5rem', fontWeight: 900 }}>EMERGENCY ALERT</h1>
-          <p style={{ fontSize: '1.2rem', margin: '20px 0' }}>
+          {/* Icon - Scaled for mobile */}
+          <div style={{ fontSize: '15vw', marginBottom: '10px' }}>⚠️</div>
+          <h1 style={{ fontSize: '8vw', fontWeight: 900, margin: '0 0 10px 0', textTransform: 'uppercase', lineHeight: 1.1 }}>EMERGENCY ALERT</h1>
+          <p style={{ fontSize: '1.1rem', margin: '20px', fontWeight: 500 }}>
             <b>{sosMed?.name}</b> was missed 45 minutes ago.
           </p>
-          <div className="card" style={{ color: 'var(--navy)', padding: '15px', maxWidth: '300px' }}>
-            <strong>Agentic AI Action:</strong>
-            <p style={{ fontSize: '0.9rem', marginTop: 5 }}>
-              "I am now notifying the caregiver and drafting a safety report..."
-            </p>
-          </div>
+          <div style={{ 
+            background: 'white', color: '#1e293b', padding: '16px', borderRadius: '12px', width: '100%', maxWidth: '320px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '1.2rem' }}>🤖</span>
+                <strong style={{ fontSize: '0.9rem' }}>Agentic AI Status</strong>
+                </div>
+                <p style={{ fontSize: '0.85rem', lineHeight: 1.4, textAlign: 'left', margin: 0 }}>
+        "Critical adherence failure detected. I am notifying your caregiver and preparing a medical summary for emergency responders."
+      </p>
+    </div>
           <button
           className="btn"
-          style={{ marginTop: 30, background: 'white', color: 'red', fontWeight: 'bold' }}
+          style={{ marginTop: 30, padding: '15px 40px', background: 'white', color: '#dc2626', fontWeight: 'bold', fontSize: '1.1rem', borderRadius: '50px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.2)'}}
           onClick={() => setShowSOS(false)}
           >
             I AM SAFE (DISMISS)
